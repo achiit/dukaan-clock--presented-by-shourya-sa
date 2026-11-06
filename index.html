@@ -1,0 +1,1111 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Clock | Presented by Shourya Sarvaiya</title>
+<!--
+  PWA (optional): add an inline manifest via
+  <link rel="manifest" href="data:application/manifest+json,{...}">
+  and register a service worker (sw.js) that caches this file for offline use.
+  The app works fully without it.
+-->
+<style>
+:root{
+  --bg:#12131a;--card:#1c1f2a;--purple:#5b3f5c;--purple-text:#f3d4f7;
+  --green:#12552a;--green-text:#b9f5c8;--red:#7a2630;--red-text:#ffc4cc;
+  --muted:#9a9db0;--text:#eceef6;--track:#2d3040;
+}
+body.amoled{--bg:#000;--card:#101014;--track:#23252e}
+body.light{--bg:#f4f5fa;--card:#ffffff;--track:#dcdfea;--text:#1b1d26;--muted:#5d6172;--purple:#d9c2e0;--purple-text:#3b2440;--green:#bfe9cc;--green-text:#0f4a22;--red:#f3c5cb;--red-text:#6a1520}
+*{box-sizing:border-box;-webkit-tap-highlight-color:transparent}
+[hidden]{display:none!important}
+html,body{margin:0;height:100%;background:#000;overflow:hidden}
+body{font-family:"Google Sans",Roboto,system-ui,-apple-system,sans-serif;color:var(--text);display:flex;justify-content:center}
+button,input,select{font:inherit;color:inherit}
+button{cursor:pointer;border:0;background:none;padding:0}
+button:active{transform:scale(.97)}
+
+#app{width:100%;max-width:420px;height:100%;background:var(--bg);position:relative;overflow:hidden;display:flex;flex-direction:column;padding-top:env(safe-area-inset-top,0px);transition:background .3s}
+
+/* ---------- top bar ---------- */
+.topbar{display:flex;align-items:center;justify-content:space-between;padding:18px 16px 8px 22px;min-height:68px}
+.topbar h1{margin:0;font-size:24px;font-weight:500}
+.icon{width:44px;height:44px;border-radius:50%;display:grid;place-items:center;font-size:20px;color:var(--text);transition:background .2s}
+.icon:active{background:var(--track)}
+
+/* ---------- pages ---------- */
+main{flex:1;position:relative;overflow:hidden}
+.page{position:absolute;inset:0;overflow-y:auto;display:none;flex-direction:column;padding-bottom:110px}
+.page.on{display:flex;animation:fade .28s ease}
+@keyframes fade{from{opacity:0;transform:translateY(6px)}to{opacity:1;transform:none}}
+
+/* ---------- bottom nav ---------- */
+nav.bottom{display:flex;justify-content:space-around;background:var(--card);padding:10px 8px calc(10px + env(safe-area-inset-bottom,0px));border-radius:28px 28px 0 0;position:relative;z-index:5}
+.tab{display:flex;flex-direction:column;align-items:center;gap:4px;font-size:12px;color:var(--muted);transition:color .2s}
+.tab.on{color:var(--text)}
+.pill{width:64px;height:32px;border-radius:16px;display:grid;place-items:center;transition:background .3s,transform .2s}
+.tab.on .pill{background:var(--purple);color:var(--purple-text)}
+.tab:active .pill{transform:scale(.92)}
+.tab svg{width:22px;height:22px;fill:none;stroke:currentColor;stroke-width:2;stroke-linecap:round;stroke-linejoin:round}
+
+/* ---------- FAB ---------- */
+#fab{position:absolute;right:22px;bottom:110px;width:64px;height:64px;border-radius:20px;background:var(--purple);color:var(--purple-text);font-size:36px;line-height:1;z-index:6;box-shadow:0 6px 18px rgba(0,0,0,.4);transition:transform .15s}
+
+/* ---------- menu ---------- */
+#menu{position:absolute;top:70px;right:12px;background:#262937;border-radius:20px;padding:8px 0;min-width:200px;z-index:30;box-shadow:0 10px 30px rgba(0,0,0,.5);display:none;animation:fade .2s}
+#menu.open{display:block}
+#menu button{display:block;width:100%;text-align:left;padding:14px 20px;font-size:15px}
+#menu button:active{background:#343847}
+
+/* ---------- alarm cards ---------- */
+.card{background:var(--card);border-radius:28px;margin:10px 14px;padding:18px 18px 18px 22px;display:flex;justify-content:space-between;align-items:center;transition:transform .15s,opacity .2s;user-select:none}
+.card:active{transform:scale(.985)}
+.card.off{opacity:.55}
+.acol{min-width:0;flex:1}
+.astatus{font-size:13px;color:var(--muted);margin-bottom:2px}
+.atime{font-size:64px;font-weight:300;letter-spacing:-1px;line-height:1.05}
+.atime .ap{font-size:16px;font-weight:400;margin-left:6px;color:var(--muted);vertical-align:top;position:relative;top:14px}
+.alabel{font-size:15px;color:var(--muted);margin-top:2px}
+.aside{display:flex;flex-direction:column;align-items:center;gap:10px}
+.switch{width:52px;height:32px;border-radius:16px;background:#3a3d4a;position:relative;transition:background .25s}
+.switch::after{content:"";position:absolute;top:4px;left:4px;width:24px;height:24px;border-radius:50%;background:#aab;transition:transform .25s,background .25s}
+.switch.on{background:#b9a0c6}
+.switch.on::after{transform:translateX(20px);background:#3b2440}
+.aside .icon{width:36px;height:36px;font-size:16px;color:var(--muted)}
+.empty{text-align:center;color:var(--muted);margin-top:90px;font-size:16px}
+
+/* ---------- timers ---------- */
+.tdisplay{display:flex;justify-content:center;gap:14px;margin:30px 16px 4px;text-align:center}
+.tgroup{min-width:90px;background:none;border:0;border-radius:20px;padding:6px 10px;cursor:pointer;transition:background .2s}
+.tgroup.act{background:var(--purple)}
+.tgroup.act .tnum,.tgroup.act .tlbl{color:var(--purple-text)}
+.tnum{font-size:60px;font-weight:200;line-height:1;font-variant-numeric:tabular-nums}
+.tlbl{font-size:12px;color:var(--muted);margin-top:6px;letter-spacing:.5px}
+.tsep{font-size:50px;font-weight:200;color:var(--muted);line-height:1}
+.tlabel{display:block;margin:14px auto 0;width:calc(100% - 28px);background:var(--card);border:0;border-radius:16px;padding:12px 16px;font-size:15px;outline:none}
+.chips{display:flex;justify-content:center;gap:10px;margin:14px 0}
+.chip{background:var(--card);border-radius:16px;padding:9px 16px;font-size:14px;transition:background .2s}
+.chip:active{background:var(--track)}
+.keypad{display:grid;grid-template-columns:repeat(3,1fr);gap:10px;padding:0 24px;justify-items:center}
+.key{width:76px;height:76px;border-radius:50%;background:var(--card);font-size:28px;display:grid;place-items:center;transition:background .15s}
+.key:active{background:var(--track)}
+.key.ghost{background:none}
+.startbtn{display:block;margin:18px 16px 0;width:calc(100% - 32px);background:var(--green);color:var(--green-text);border-radius:999px;padding:18px;font-size:18px;font-weight:500;letter-spacing:.3px;transition:filter .2s}
+.startbtn:active{filter:brightness(.9)}
+.sectitle{font-size:13px;color:var(--muted);margin:22px 22px 0;letter-spacing:.4px;text-transform:uppercase}
+.tcard{background:var(--card);border-radius:24px;margin:10px 14px;padding:16px 18px;cursor:pointer}
+.trow{display:flex;justify-content:space-between;align-items:center}
+.tcard .tt{font-size:30px;font-weight:300;font-variant-numeric:tabular-nums}
+.tcard .tn{font-size:14px;color:var(--muted)}
+.bar{height:4px;border-radius:2px;background:var(--track);margin-top:12px;overflow:hidden}
+.bar i{display:block;height:100%;background:var(--green-text);transition:width .3s linear}
+.tcard.done .tt{color:var(--green-text)}
+
+/* ---------- stopwatch ---------- */
+.swdisplay{font-size:76px;font-weight:200;text-align:center;margin:44px 0 10px;font-variant-numeric:tabular-nums;letter-spacing:-1px}
+.swdisplay small{font-size:34px;color:var(--muted)}
+.swctrl{display:flex;justify-content:center;gap:14px;margin:18px 16px}
+.pillbtn{flex:1;max-width:170px;padding:20px 0;border-radius:999px;font-size:17px;font-weight:500;background:var(--purple);color:var(--purple-text);transition:filter .2s}
+.pillbtn.alt{background:var(--card);color:var(--text)}
+.pillbtn.big{max-width:none;width:calc(100% - 32px);}
+.laps{margin:20px 14px;background:var(--card);border-radius:24px;padding:6px 0;max-height:320px;overflow-y:auto}
+.lap{display:grid;grid-template-columns:50px 1fr 1fr;padding:13px 20px;font-size:16px;font-variant-numeric:tabular-nums;color:var(--text)}
+.lap span:nth-child(2),.lap span:nth-child(3){text-align:right}
+.lap.best{color:var(--green-text)}
+.lap.worst{color:var(--red-text)}
+.lap.head{color:var(--muted);font-size:13px}
+
+.swdial{margin:36px auto 0}
+.swdial .swdisplay{margin:0;font-size:56px;letter-spacing:-1px}
+.swdial .swdisplay small{font-size:28px}
+.overlay{position:absolute;inset:0;background:var(--bg);z-index:40;display:flex;flex-direction:column;align-items:center;opacity:0;pointer-events:none;transition:opacity .28s;padding:env(safe-area-inset-top,0px) 18px calc(20px + env(safe-area-inset-bottom,0px))}
+.overlay.open{opacity:1;pointer-events:auto}
+.overlay.ring{background:linear-gradient(170deg,#3a2a40,#12131a 70%)}
+.ringtime{font-size:88px;font-weight:200;margin-top:auto;font-variant-numeric:tabular-nums}
+.ringsub{font-size:18px;color:var(--purple-text);margin-top:6px;text-align:center}
+.ringlabel{font-size:16px;color:var(--muted);margin-top:8px;text-align:center;min-height:20px}
+.ringbtns{display:flex;gap:14px;width:100%;margin-top:auto;margin-bottom:10px}
+.ringbtns button{flex:1;padding:22px 0;border-radius:999px;font-size:18px;font-weight:500}
+.btnsnooze{background:var(--card);color:var(--text)}
+.btndismiss{background:var(--purple);color:var(--purple-text)}
+.detailtop{width:100%;display:flex;justify-content:space-between;align-items:center;margin-top:4px}
+.detailtop h2{margin:0;font-size:18px;font-weight:500;color:var(--muted)}
+.dial{position:relative;width:280px;height:280px;margin-top:18px}
+.dial svg{width:100%;height:100%;transform:rotate(-90deg)}
+.dial .track{fill:none;stroke:var(--track);stroke-width:10}
+.dial .prog{fill:none;stroke:var(--green-text);stroke-width:10;stroke-linecap:round;transition:stroke-dashoffset .3s linear}
+.dialtext{position:absolute;inset:0;display:grid;place-items:center;font-size:48px;font-weight:200;font-variant-numeric:tabular-nums}
+.dbtns{display:grid;grid-template-columns:1fr 1fr;gap:12px;width:100%;margin-top:auto}
+.dbtns button{padding:18px 0;border-radius:999px;background:var(--card);font-size:16px;font-weight:500}
+.dbtns .primary{background:var(--green);color:var(--green-text)}
+.dbtns .danger{background:var(--red);color:var(--red-text)}
+
+/* ---------- sheets / modals ---------- */
+.scrim{position:absolute;inset:0;background:rgba(0,0,0,.6);z-index:45;display:flex;align-items:flex-end;opacity:0;pointer-events:none;transition:opacity .25s}
+.scrim.open{opacity:1;pointer-events:auto}
+.sheet{width:100%;max-height:92%;overflow-y:auto;background:var(--card);border-radius:32px 32px 0 0;padding:14px 22px calc(22px + env(safe-area-inset-bottom,0px));transform:translateY(40px);transition:transform .3s}
+.scrim.open .sheet{transform:none}
+.grab{width:40px;height:4px;border-radius:2px;background:var(--track);margin:0 auto 14px}
+.sheet h2{margin:0 0 14px;font-size:20px;font-weight:500}
+.timepick{display:flex;align-items:center;justify-content:center;gap:10px;margin:6px 0 18px}
+.timepick input{width:110px;background:var(--bg);border:0;border-radius:24px;padding:14px 0;font-size:56px;font-weight:200;text-align:center;outline:none;font-variant-numeric:tabular-nums}
+.timepick .colon{font-size:48px;font-weight:200;color:var(--muted)}
+.seg{display:flex;flex-direction:column;gap:6px}
+.seg button{padding:8px 12px;border-radius:12px;background:var(--bg);color:var(--muted);font-size:14px}
+.seg button.on{background:var(--purple);color:var(--purple-text)}
+.days{display:flex;justify-content:space-between;gap:6px;margin:6px 0 4px}
+.day{width:40px;height:40px;border-radius:50%;background:var(--bg);font-size:14px;transition:background .2s}
+.day.on{background:var(--purple);color:var(--purple-text)}
+.everyday{font-size:14px;color:var(--purple-text);padding:8px 0 16px}
+.field{display:flex;justify-content:space-between;align-items:center;gap:12px;padding:14px 0;border-top:1px solid var(--track);font-size:16px}
+.field input[type=text],.field select{background:var(--bg);border:0;border-radius:12px;padding:10px 12px;outline:none;max-width:60%;text-align:right;font-size:15px}
+.field input[type=range]{width:55%;accent-color:var(--purple-text)}
+.field input[type=checkbox]{width:22px;height:22px;accent-color:var(--purple-text)}
+.actions{display:flex;gap:10px;margin-top:20px}
+.actions button{flex:1;padding:16px 0;border-radius:999px;font-size:16px;font-weight:500;background:var(--bg)}
+.actions .save{background:var(--purple);color:var(--purple-text)}
+.actions .del{background:var(--red);color:var(--red-text);flex:0 0 auto;padding:16px 22px}
+
+#toast{position:absolute;left:50%;bottom:120px;transform:translateX(-50%) translateY(20px);background:#eceef6;color:#12131a;padding:12px 18px;border-radius:14px;font-size:14px;opacity:0;transition:.3s;pointer-events:none;z-index:99;white-space:nowrap}
+#toast.show{opacity:1;transform:translateX(-50%)}
+
+.brand{text-align:center;font-size:12px;color:var(--muted);letter-spacing:.6px;padding:18px 0 8px;opacity:.85}
+@media (min-height:700px){ .page{padding-bottom:120px} }
+</style>
+</head>
+<body>
+<div id="app">
+
+  <header class="topbar">
+    <h1 id="title">Alarm</h1>
+    <button class="icon" id="menuBtn" aria-label="More options">&#8942;</button>
+  </header>
+  <div id="menu" role="menu"></div>
+
+  <main>
+    <!-- ================= ALARMS ================= -->
+    <section class="page on" id="pg-alarms">
+      <div id="alarmList"></div>
+      <div class="empty" id="alarmEmpty" hidden>No alarms. Tap + to add</div>
+      <div class="brand">Presented by Shourya Sarvaiya</div>
+    </section>
+
+    <!-- ================= TIMERS ================= -->
+    <section class="page" id="pg-timers">
+      <div class="tdisplay">
+        <div class="tgroup"><div class="tnum" id="tH">00</div><div class="tlbl">HOURS</div></div>
+        <div class="tsep">:</div>
+        <div class="tgroup"><div class="tnum" id="tM">00</div><div class="tlbl">MINUTES</div></div>
+        <div class="tsep">:</div>
+        <div class="tgroup"><div class="tnum" id="tS">00</div><div class="tlbl">SECONDS</div></div>
+      </div>
+      <input class="tlabel" id="tLabel" type="text" placeholder="Label (optional)" maxlength="40">
+      <div class="chips">
+        <button class="chip" data-chip="60">1m</button>
+        <button class="chip" data-chip="300">5m</button>
+        <button class="chip" data-chip="600">10m</button>
+        <button class="chip" data-chip="900">15m</button>
+      </div>
+      <div class="keypad" id="keypad"></div>
+      <button class="startbtn" id="tStart">Start</button>
+      <div class="sectitle" id="tListTitle" hidden>Timers</div>
+      <div id="timerList"></div>
+      <div class="brand">Presented by Shourya Sarvaiya</div>
+    </section>
+
+    <!-- ================= STOPWATCH ================= -->
+    <section class="page" id="pg-stopwatch">
+      <div class="dial swdial">
+        <svg viewBox="0 0 280 280"><circle class="track" cx="140" cy="140" r="120"/><circle class="prog" id="swProg" cx="140" cy="140" r="120" stroke-dasharray="753.98" stroke-dashoffset="753.98"/></svg>
+        <div class="dialtext swdisplay" id="swDisplay">00:00<small>.00</small></div>
+      </div>
+      <div class="swctrl">
+        <button class="pillbtn big" id="swStart" hidden>Start</button>
+        <button class="pillbtn alt" id="swLap" hidden>Lap</button>
+        <button class="pillbtn" id="swPause" hidden>Pause</button>
+        <button class="pillbtn" id="swResume" hidden>Resume</button>
+        <button class="pillbtn alt" id="swReset" hidden>Reset</button>
+      </div>
+      <div class="laps" id="laps"></div>
+      <div class="brand">Presented by Shourya Sarvaiya</div>
+    </section>
+  </main>
+
+  <button id="fab" aria-label="Add alarm" hidden>+</button>
+
+  <nav class="bottom">
+    <button class="tab on" data-tab="alarms">
+      <span class="pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4l2.5 2M4 4L2 6M20 4l2 2"/></svg></span>Alarms
+    </button>
+    <button class="tab" data-tab="timers">
+      <span class="pill"><svg viewBox="0 0 24 24"><path d="M7 3h10M7 21h10M8 3c0 5 8 5 8 9s-8 4-8 9M16 3c0 5-8 5-8 9s8 4 8 9"/></svg></span>Timers
+    </button>
+    <button class="tab" data-tab="stopwatch">
+      <span class="pill"><svg viewBox="0 0 24 24"><circle cx="12" cy="13" r="8"/><path d="M12 9v4M10 2h4"/></svg></span>Stopwatch
+    </button>
+  </nav>
+
+  <!-- ================= ALARM EDITOR ================= -->
+  <div class="scrim" id="editor">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h2 id="edTitle">New alarm</h2>
+      <div class="timepick">
+        <input id="edHour" type="number" inputmode="numeric" min="1" max="12" aria-label="Hour">
+        <span class="colon">:</span>
+        <input id="edMin" type="number" inputmode="numeric" min="0" max="59" aria-label="Minute">
+        <div class="seg" id="edAmpm" hidden>
+          <button data-ampm="AM">AM</button>
+          <button data-ampm="PM">PM</button>
+        </div>
+      </div>
+      <div class="days" id="edDays"></div>
+      <button class="everyday" id="edEvery">Every day</button>
+      <div class="field"><span>Label</span><input type="text" id="edLabel" maxlength="40" placeholder="Wake Up"></div>
+      <div class="field"><span>Ringtone</span><select id="edTone"></select></div>
+      <div class="field"><span>Vibrate</span><input type="checkbox" id="edVib"></div>
+      <div class="field"><span>Snooze</span>
+        <select id="edSnooze"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option></select>
+      </div>
+      <div class="field"><span>Gradual volume</span>
+        <select id="edRamp"><option value="0">Off</option><option value="30">30 sec</option><option value="60">1 min</option><option value="180">3 min</option></select>
+      </div>
+      <div class="field"><span>Math to dismiss</span><input type="checkbox" id="edMath"></div>
+      <div class="actions">
+        <button class="del" id="edDelete" hidden>Delete</button>
+        <button id="edCancel">Cancel</button>
+        <button class="save" id="edSave">Save</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ================= SETTINGS ================= -->
+  <div class="scrim" id="settings">
+    <div class="sheet">
+      <div class="grab"></div>
+      <h2>Settings</h2>
+      <div class="field"><span>Clock format</span>
+        <select id="sFmt"><option value="12">12-hour</option><option value="24">24-hour</option></select></div>
+      <div class="field"><span>Default snooze</span>
+        <select id="sSnooze"><option value="5">5 min</option><option value="10">10 min</option><option value="15">15 min</option></select></div>
+      <div class="field"><span>Default sound</span><select id="sTone"></select></div>
+      <div class="field"><span>Volume</span><input type="range" id="sVol" min="0" max="1" step="0.05"></div>
+      <div class="field"><span>My ringtone</span><input type="file" id="sCustom" accept="audio/*" style="max-width:60%;font-size:13px"></div>
+      <div class="field"><span>Remove my ringtone</span><button id="sCustomDel" style="padding:8px 14px;border-radius:12px;background:var(--red);color:var(--red-text)">Remove</button></div>
+      <div class="field"><span>Vibration</span><input type="checkbox" id="sVib"></div>
+      <div class="field"><span>Theme</span>
+        <select id="sTheme"><option value="dark">Dark</option><option value="amoled">AMOLED black</option><option value="light">Light</option></select></div>
+      <div class="actions">
+        <button class="del" id="sReset">Reset all data</button>
+        <button class="save" id="sDone">Done</button>
+      </div>
+      <div class="brand">Clock · Presented by Shourya Sarvaiya</div>
+    </div>
+  </div>
+
+  <!-- ================= ALARM RING ================= -->
+  <div class="overlay ring" id="ring">
+    <div style="margin-top:auto;text-align:center;width:100%">
+      <div class="ringsub" id="ringTitle">Alarm</div>
+      <div class="ringtime" id="ringTime">--:--</div>
+      <div class="ringlabel" id="ringLabel"></div>
+      <div class="brand">Presented by Shourya Sarvaiya</div>
+    </div>
+    <div class="ringbtns" id="ringBtns">
+      <button class="btnsnooze" id="ringSnooze">Snooze</button>
+      <button class="btndismiss" id="ringDismiss">Dismiss</button>
+    </div>
+    <div id="ringMath" hidden style="width:100%;text-align:center;margin-bottom:10px">
+      <div id="mathQ" style="font-size:24px;margin-bottom:10px"></div>
+      <input id="mathA" type="number" inputmode="numeric" style="width:100%;padding:16px;border-radius:16px;border:0;background:var(--card);color:var(--text);font-size:22px;text-align:center;outline:none">
+      <button class="btndismiss" id="mathOk" style="width:100%;margin-top:10px;padding:18px;border-radius:999px;font-size:18px">Stop</button>
+    </div>
+    <button class="btnsnooze" id="ringTimerPlus" style="width:100%;border-radius:999px;padding:18px;margin-bottom:8px" hidden>+1 min</button>
+  </div>
+
+  <!-- ================= TIMER DETAIL ================= -->
+  <div class="overlay" id="detail">
+    <div class="detailtop">
+      <button class="icon" id="dClose" aria-label="Close">&#8592;</button>
+      <h2 id="dLabel">Timer</h2>
+      <span style="width:44px"></span>
+    </div>
+    <div class="dial">
+      <svg viewBox="0 0 280 280">
+        <circle class="track" cx="140" cy="140" r="120"/>
+        <circle class="prog" id="dProg" cx="140" cy="140" r="120" stroke-dasharray="753.98" stroke-dashoffset="0"/>
+      </svg>
+      <div class="dialtext" id="dTime">00:00:00</div>
+    </div>
+    <div class="dbtns">
+      <button id="dPause" class="primary">Pause</button>
+      <button id="dReset">Reset</button>
+      <button id="dPlus">+1:00</button>
+      <button id="dDelete" class="danger">Delete</button>
+    </div>
+  </div>
+
+  <div id="toast"></div>
+</div>
+
+<script>
+/* =====================================================================
+   Clock app: Alarms, Timers, Stopwatch. Single file, no dependencies.
+   All timing is based on Date.now() / endTime, not setInterval counts.
+   ===================================================================== */
+
+/* ---------- helpers ---------- */
+const $  = (s, r = document) => r.querySelector(s);
+const $$ = (s, r = document) => [...r.querySelectorAll(s)];
+const pad = n => String(n).padStart(2, '0');
+const DAYS = ['Sun','Mon','Tue','Wed','Thu','Fri','Sat'];
+const MAX_TIMER_SEC = 359999; // 99:59:59
+const uid = () => Date.now().toString(36) + Math.random().toString(36).slice(2, 7);
+const esc = s => String(s).replace(/[&<>"']/g, c => ({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));
+const store = {
+  get(k, d) { try { const v = localStorage.getItem(k); return v ? JSON.parse(v) : d; } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem(k, JSON.stringify(v)); } catch (e) {} },
+  del(k)    { try { localStorage.removeItem(k); } catch (e) {} }
+};
+function toast(msg) {
+  const t = $('#toast'); t.textContent = msg; t.classList.add('show');
+  clearTimeout(toast._t); toast._t = setTimeout(() => t.classList.remove('show'), 1800);
+}
+
+/* ---------- state & persistence ---------- */
+const DEFAULT_SETTINGS = { format24: false, snooze: 5, volume: 0.6, vibrate: true, amoled: false, ringtone: 0 };
+const S = {
+  alarms:   store.get('clk_alarms', []),
+  timers:   store.get('clk_timers', []),
+  sw:       store.get('clk_sw', { running: false, start: 0, base: 0, laps: [] }),
+  settings: { ...DEFAULT_SETTINGS, ...store.get('clk_settings', {}) },
+  snoozes:  [] // in-memory snoozed alarms: { ts, info }
+};
+const saveAlarms   = () => store.set('clk_alarms', S.alarms);
+const saveTimers   = () => store.set('clk_timers', S.timers);
+const saveSw       = () => store.set('clk_sw', S.sw);
+const saveSettings = () => store.set('clk_settings', S.settings);
+
+/* ---------- time formatting ---------- */
+function timeParts(h, m) {
+  if (S.settings.format24) return { t: `${pad(h)}:${pad(m)}`, ap: '' };
+  return { t: `${h % 12 || 12}:${pad(m)}`, ap: h >= 12 ? 'PM' : 'AM' };
+}
+function fmtHMS(ms) {
+  const s = Math.ceil(Math.max(0, ms) / 1000);
+  return `${pad(Math.floor(s / 3600))}:${pad(Math.floor(s % 3600 / 60))}:${pad(s % 60)}`;
+}
+function fmtDur(ms) {
+  const mins = Math.ceil(ms / 60000);
+  if (mins <= 0) return 'less than a minute';
+  const h = Math.floor(mins / 60), m = mins % 60;
+  return (h ? h + 'h ' : '') + m + 'm';
+}
+const sameDay = (a, b) => a.toDateString() === b.toDateString();
+
+/* ---------- Audio (Web Audio API oscillator beeps) ---------- */
+const TONES = [
+  { name: 'Classic', wave: 'sine',     freqs: [880, 988],      len: 0.25, gap: 300 },
+  { name: 'Digital', wave: 'square',   freqs: [1200],          len: 0.15, gap: 250 },
+  { name: 'Chime',   wave: 'triangle', freqs: [523, 659, 784], len: 0.40, gap: 600 },
+  { name: 'Pulse',   wave: 'sawtooth', freqs: [440],           len: 0.35, gap: 400 },
+  { name: 'Bells',   wave: 'sine',     freqs: [1047, 1319, 1568], len: 0.50, gap: 700 },
+  { name: 'Radar',   wave: 'sine',     freqs: [660, 660, 990], len: 0.12, gap: 500 },
+  { name: 'Rise',    wave: 'triangle', freqs: [392, 494, 587, 784], len: 0.20, gap: 500 },
+  { name: 'Morning', wave: 'sine',     freqs: [523, 523, 784, 1047], len: 0.30, gap: 600 },
+  { name: 'Beacon',  wave: 'square',   freqs: [1500, 1500, 1500], len: 0.08, gap: 700 }
+];
+let AC = null;
+function audio() {
+  if (!AC) { const A = window.AudioContext || window.webkitAudioContext; if (!A) return null; AC = new A(); }
+  if (AC.state === 'suspended') AC.resume();
+  return AC;
+}
+function beep(wave, freq, len, vol) {
+  try {
+    const c = audio(); if (!c) return;
+    const o = c.createOscillator(), g = c.createGain(), t = c.currentTime;
+    o.type = wave; o.frequency.value = freq;
+    g.gain.setValueAtTime(0.0001, t);
+    g.gain.exponentialRampToValueAtTime(Math.max(vol, 0.001), t + 0.01);
+    g.gain.exponentialRampToValueAtTime(0.0001, t + len);
+    o.connect(g); g.connect(c.destination);
+    o.start(t); o.stop(t + len + 0.02);
+  } catch (e) {}
+}
+
+/* ---------- Wake lock ---------- */
+let wakeLock = null;
+async function syncWakeLock() {
+  const want = !!ringing || S.sw.running;
+  try {
+    if (want && !wakeLock && 'wakeLock' in navigator) {
+      wakeLock = await navigator.wakeLock.request('screen');
+      wakeLock.addEventListener('release', () => { wakeLock = null; });
+    } else if (!want && wakeLock) { await wakeLock.release(); wakeLock = null; }
+  } catch (e) {}
+}
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { syncWakeLock(); tick(); } });
+
+/* ---------- Notifications ---------- */
+function askNotifPermission() {
+  if ('Notification' in window && Notification.permission === 'default') Notification.requestPermission().catch(() => {});
+}
+function notify(title, body) {
+  if ('Notification' in window && Notification.permission === 'granted' && document.hidden) {
+    try { new Notification(title, { body, tag: 'clock-' + Date.now() }); } catch (e) {}
+  }
+}
+
+/* =====================================================================
+   ALARMS
+   ===================================================================== */
+// Next moment this alarm will ring (Date), or null.
+function nextRing(a, from = new Date()) {
+  for (let i = 0; i <= 7; i++) {
+    const d = new Date(from);
+    d.setDate(from.getDate() + i);
+    d.setHours(a.h, a.m, 0, 0);
+    if (d <= from) continue;
+    if (!a.days.length || a.days.includes(d.getDay())) return d;
+  }
+  return null;
+}
+function statusText(a) {
+  if (!a.enabled) return 'Not scheduled';
+  let base;
+  if (!a.days.length) {
+    const n = nextRing(a); base = n && sameDay(n, new Date()) ? 'Today' : 'Tomorrow';
+  } else if (a.days.length === 7) base = 'Every day';
+  else base = [...a.days].sort().map(d => DAYS[d]).join(', ');
+  const n = nextRing(a);
+  return n ? `${base} · Rings in ${fmtDur(n - Date.now())}` : base;
+}
+
+function renderAlarms() {
+  const list = $('#alarmList');
+  $('#alarmEmpty').hidden = S.alarms.length > 0;
+  list.innerHTML = S.alarms.map(a => {
+    const tp = timeParts(a.h, a.m);
+    return `<div class="card ${a.enabled ? '' : 'off'}" data-id="${a.id}">
+      <div class="acol">
+        <div class="astatus" data-status="${a.id}">${statusText(a)}</div>
+        <div class="atime">${tp.t}${tp.ap ? `<span class="ap">${tp.ap}</span>` : ''}</div>
+        <div class="alabel">${esc(a.label || '')}</div>
+      </div>
+      <div class="aside">
+        <button class="switch ${a.enabled ? 'on' : ''}" data-toggle aria-label="Toggle alarm"></button>
+        <button class="icon" data-del aria-label="Delete alarm">&#128465;</button>
+      </div>
+    </div>`;
+  }).join('');
+}
+function updateAlarmStatus() {
+  for (const el of $$('[data-status]')) {
+    const a = S.alarms.find(x => x.id === el.dataset.status);
+    if (a) el.textContent = statusText(a);
+  }
+}
+function saveAlarmsAndRender() { saveAlarms(); renderAlarms(); }
+
+function deleteAlarm(id) {
+  if (!confirm('Delete this alarm?')) return;
+  S.alarms = S.alarms.filter(a => a.id !== id);
+  saveAlarmsAndRender();
+  toast('Alarm deleted');
+}
+
+/* Alarm check: runs every tick, fires once per matching minute */
+function checkAlarms(now) {
+  const dayKey = `${now.getFullYear()}-${now.getMonth()}-${now.getDate()}`;
+  for (const a of S.alarms) {
+    if (!a.enabled || a.h !== now.getHours() || a.m !== now.getMinutes()) continue;
+    if (a.days.length && !a.days.includes(now.getDay())) continue;
+    const fireKey = `${dayKey} ${a.h}:${a.m}`;
+    if (a.lastFired === fireKey) continue;
+    a.lastFired = fireKey;
+    if (!a.days.length) a.enabled = false; // one-time alarm turns itself off
+    saveAlarmsAndRender();
+    startRing({ kind: 'alarm', id: a.id, label: a.label, tone: a.ringtone, vibrate: a.vibrate, snooze: a.snooze, ramp: a.ramp, math: a.math });
+    return;
+  }
+}
+function checkSnoozes() {
+  const now = Date.now();
+  S.snoozes = S.snoozes.filter(s => {
+    if (now >= s.ts) { startRing(s.info); return false; }
+    return true;
+  });
+}
+
+/* ---------- Alarm editor ---------- */
+let edId = null;
+const ed = { days: [], ampm: 'AM' };
+function renderEdDays() {
+  $('#edDays').innerHTML = DAYS.map((d, i) =>
+    `<button class="day ${ed.days.includes(i) ? 'on' : ''}" data-day="${i}">${d[0]}</button>`).join('');
+  $('#edEvery').textContent = ed.days.length === 7 ? 'Clear repeat' : 'Every day';
+}
+function openEditor(id) {
+  edId = id || null;
+  const a = id ? S.alarms.find(x => x.id === id)
+               : { h: 7, m: 0, days: [], label: '', ringtone: S.settings.ringtone, vibrate: S.settings.vibrate, snooze: S.settings.snooze };
+  ed.days = [...a.days];
+  ed.ampm = a.h >= 12 ? 'PM' : 'AM';
+  const f24 = S.settings.format24;
+  $('#edHour').min = f24 ? 0 : 1; $('#edHour').max = f24 ? 23 : 12;
+  $('#edHour').value = pad(f24 ? a.h : (a.h % 12 || 12));
+  $('#edMin').value = pad(a.m);
+  $('#edAmpm').hidden = f24;
+  $$('#edAmpm button').forEach(b => b.classList.toggle('on', b.dataset.ampm === ed.ampm));
+  $('#edLabel').value = a.label || '';
+  $('#edTone').value = String(a.ringtone ?? 0);
+  $('#edVib').checked = !!a.vibrate;
+  $('#edSnooze').value = String(a.snooze ?? 5);
+  $('#edRamp').value = String(a.ramp ?? 0);
+  $('#edMath').checked = !!a.math;
+  $('#edTitle').textContent = id ? 'Edit alarm' : 'New alarm';
+  $('#edDelete').hidden = !id;
+  renderEdDays();
+  $('#editor').classList.add('open');
+}
+function closeEditor() { $('#editor').classList.remove('open'); }
+function saveEditor() {
+  let h = parseInt($('#edHour').value, 10), m = parseInt($('#edMin').value, 10);
+  if (isNaN(h) || isNaN(m)) return toast('Enter a valid time');
+  if (!S.settings.format24) {
+    if (h < 1 || h > 12) return toast('Hour must be 1-12');
+    h = (h % 12) + (ed.ampm === 'PM' ? 12 : 0);
+  }
+  if (h < 0 || h > 23 || m < 0 || m > 59) return toast('Invalid time');
+  const data = {
+    h, m, days: [...ed.days].sort(), label: $('#edLabel').value.trim(),
+    ringtone: toneValue($('#edTone').value), vibrate: $('#edVib').checked,
+    snooze: +$('#edSnooze').value, ramp: +$('#edRamp').value, math: $('#edMath').checked, enabled: true, lastFired: null
+  };
+  if (edId) Object.assign(S.alarms.find(x => x.id === edId), data);
+  else S.alarms.push({ id: uid(), ...data });
+  saveAlarmsAndRender();
+  closeEditor();
+  askNotifPermission();
+  toast('Alarm saved');
+}
+
+/* =====================================================================
+   RING (alarm or timer finished)
+   ===================================================================== */
+let ringing = null, ringLoop = null;
+function playRingLoop() {
+  stopRingLoop();
+  const sel = ringing && ringing.tone != null ? ringing.tone : S.settings.ringtone;
+  if (sel === 'custom' && store.get('clk_custom', null)) return playCustom();
+  const tone = TONES[sel] || TONES[0];
+  const once = () => {
+    const vol = rampVolume();
+    tone.freqs.forEach((f, i) => setTimeout(() => beep(tone.wave, f, tone.len, vol), i * tone.len * 1000));
+    if (S.settings.vibrate && ringing && ringing.vibrate !== false && navigator.vibrate) navigator.vibrate([400, 200, 400]);
+  };
+  once();
+  ringLoop = setInterval(once, tone.freqs.length * tone.len * 1000 + tone.gap);
+}
+/* Gradual volume: volume rises from quiet to full over the chosen ramp time */
+function rampVolume() {
+  const ramp = ringing && ringing.ramp ? ringing.ramp * 1000 : 0;
+  if (!ramp || !ringing.startedAt) return S.settings.volume;
+  return S.settings.volume * Math.min(1, Math.max(0.05, (Date.now() - ringing.startedAt) / ramp));
+}
+let customAudio = null;
+/* Plays the user's uploaded file in a loop, with the same gradual volume and vibration */
+function playCustom() {
+  customAudio = new Audio(store.get('clk_custom', ''));
+  customAudio.loop = true;
+  customAudio.volume = Math.min(1, rampVolume());
+  customAudio.play().catch(() => {});
+  let n = 0;
+  ringLoop = setInterval(() => {
+    if (customAudio) customAudio.volume = Math.min(1, rampVolume());
+    if (S.settings.vibrate && ringing && ringing.vibrate !== false && navigator.vibrate && n++ % 3 === 0) navigator.vibrate([400, 200, 400]);
+  }, 500);
+}
+function stopRingLoop() {
+  if (ringLoop) { clearInterval(ringLoop); ringLoop = null; }
+  if (customAudio) { customAudio.pause(); customAudio = null; }
+}
+
+function startRing(info) {
+  if (ringing) return; // only one ring screen at a time
+  ringing = { ...info, startedAt: Date.now() };
+  $('#ringTitle').textContent = info.kind === 'alarm' ? 'Alarm' : 'Timer finished';
+  if (info.kind === 'alarm') {
+    const n = new Date(), tp = timeParts(n.getHours(), n.getMinutes());
+    $('#ringTime').textContent = tp.t + (tp.ap ? ' ' + tp.ap : '');
+  } else {
+    $('#ringTime').textContent = '';
+  }
+  $('#ringLabel').textContent = info.label || '';
+  $('#ringSnooze').hidden = info.kind !== 'alarm';
+  $('#ringDismiss').textContent = info.kind === 'alarm' ? 'Dismiss' : 'Stop';
+  $('#ringTimerPlus').hidden = info.kind !== 'timer';
+  $('#ring').classList.add('open');
+  playRingLoop();
+  syncWakeLock();
+  notify(info.kind === 'alarm' ? '⏰ ' + (info.label || 'Alarm') : '⏱ Timer finished', info.label || 'Your timer is done');
+}
+function stopRing() {
+  stopRingLoop();
+  ringing = null;
+  $('#ring').classList.remove('open');
+  $('#ringMath').hidden = true;
+  $('#ringBtns').hidden = false;
+  if (navigator.vibrate) navigator.vibrate(0);
+  syncWakeLock();
+}
+$('#ringSnooze').onclick = () => {
+  const info = ringing; if (!info) return;
+  S.snoozes.push({ ts: Date.now() + (info.snooze || S.settings.snooze) * 60000, info: { ...info } });
+  stopRing(); toast(`Snoozed ${info.snooze || S.settings.snooze} min`);
+};
+/* Smart dismiss: optional maths question must be solved before the alarm stops */
+let mathAnswer = null;
+$('#ringDismiss').onclick = () => {
+  if (ringing && ringing.kind === 'alarm' && ringing.math) return askMath();
+  stopRing();
+};
+function askMath() {
+  const x = 3 + Math.floor(Math.random() * 18), y = 3 + Math.floor(Math.random() * 18);
+  mathAnswer = x * y;
+  $('#mathQ').textContent = `${x} × ${y} = ?`;
+  $('#mathA').value = '';
+  $('#ringBtns').hidden = true;
+  $('#ringMath').hidden = false;
+}
+$('#mathOk').onclick = () => {
+  if (+$('#mathA').value === mathAnswer) stopRing();
+  else toast('ખોટો જવાબ, ફરી પ્રયાસ કરો');
+};
+$('#ringTimerPlus').onclick = () => { const l = ringing && ringing.label; stopRing(); makeTimer(60, l || ''); };
+
+/* =====================================================================
+   TIMERS
+   Timer: { id, label, total(ms), status: 'running'|'paused'|'done', end(ms), left(ms) }
+   ===================================================================== */
+// Three fields: hours, minutes, seconds. Tap a field (HH / MM / SS) to choose
+// which one the keypad types into. Each field holds up to 2 digits.
+let fields = ['', '', ''];
+let active = 1; // default: minutes
+const fieldVal = i => +(fields[i] || 0);
+const toFields = sec => [pad(Math.floor(sec / 3600)), pad(Math.floor(sec % 3600 / 60)), pad(sec % 60)];
+// Normalizes automatically: 84 seconds becomes 1m 24s
+const parseEntry = () => Math.min(fieldVal(0) * 3600 + fieldVal(1) * 60 + fieldVal(2), MAX_TIMER_SEC);
+
+function renderKeypad() {
+  const keys = ['1','2','3','4','5','6','7','8','9','', '0', '⌫'];
+  $('#keypad').innerHTML = keys.map(k =>
+    k === '' ? '<span class="key ghost"></span>' :
+    `<button class="key" data-key="${k}">${k}</button>`).join('');
+  renderTimerDisplay();
+}
+function renderTimerDisplay() {
+  ['#tH', '#tM', '#tS'].forEach((id, i) => { $(id).textContent = (fields[i] || '').padStart(2, '0'); });
+  $$('.tgroup').forEach((g, i) => g.classList.toggle('act', i === active));
+}
+function pressKey(k) {
+  const cur = fields[active] || '';
+  if (k === '⌫') fields[active] = cur.slice(0, -1);
+  else if (k === '00') fields[active] = (cur + '00').slice(-2);
+  else fields[active] = (cur + k).slice(-2);
+  renderTimerDisplay();
+}
+function addChip(sec) {
+  const total = Math.min(parseEntry() + sec, MAX_TIMER_SEC);
+  fields = toFields(total);
+  renderTimerDisplay();
+}
+
+function makeTimer(seconds, label) {
+  const t = { id: uid(), label, total: seconds * 1000, status: 'running', end: Date.now() + seconds * 1000, left: 0 };
+  S.timers.unshift(t);
+  saveTimers(); renderTimers(); askNotifPermission();
+  return t;
+}
+function startNewTimer() {
+  const sec = parseEntry();
+  if (sec <= 0) return toast('Set a time first');
+  const label = $('#tLabel').value.trim();
+  fields = ['', '', '']; $('#tLabel').value = '';
+  renderKeypad();
+  const t = makeTimer(sec, label);
+  openDetail(t.id);
+}
+
+const remainingOf = t => t.status === 'running' ? Math.max(0, t.end - Date.now()) : t.left;
+
+function renderTimers() {
+  $('#tListTitle').hidden = S.timers.length === 0;
+  $('#timerList').innerHTML = S.timers.map(t => `
+    <div class="tcard ${t.status === 'done' ? 'done' : ''}" data-timer="${t.id}">
+      <div class="trow">
+        <div>
+          <div class="tn">${esc(t.label || 'Timer')}</div>
+          <div class="tt" data-tt="${t.id}">${fmtHMS(remainingOf(t))}</div>
+        </div>
+        <div class="tn" data-ts="${t.id}">${t.status === 'running' ? 'Running' : t.status === 'paused' ? 'Paused' : 'Done'}</div>
+      </div>
+      <div class="bar"><i data-bar="${t.id}" style="width:${Math.round(100 * remainingOf(t) / t.total)}%"></i></div>
+    </div>`).join('');
+}
+function updateTimerTexts() {
+  for (const t of S.timers) {
+    const rem = remainingOf(t);
+    const tt = $(`[data-tt="${t.id}"]`); if (tt) tt.textContent = fmtHMS(rem);
+    const bar = $(`[data-bar="${t.id}"]`); if (bar) bar.style.width = Math.round(100 * rem / t.total) + '%';
+  }
+}
+function checkTimers() {
+  let changed = false;
+  for (const t of S.timers) {
+    if (t.status === 'running' && Date.now() >= t.end) {
+      t.status = 'done'; t.left = 0; changed = true;
+      startRing({ kind: 'timer', id: t.id, label: t.label, vibrate: true });
+    }
+  }
+  if (changed) { saveTimers(); renderTimers(); if (detailId) updateTimerDetail(); }
+}
+
+/* Timer detail (countdown screen) */
+let detailId = null;
+const RING_C = 2 * Math.PI * 120;
+function openDetail(id) {
+  detailId = id;
+  $('#detail').classList.add('open');
+  updateTimerDetail();
+}
+function closeDetail() {
+  detailId = null;
+  $('#detail').classList.remove('open');
+  renderTimers();
+}
+function updateTimerDetail() {
+  if (!detailId) return;
+  const t = S.timers.find(x => x.id === detailId);
+  if (!t) return closeDetail();
+  const rem = remainingOf(t);
+  $('#dTime').textContent = fmtHMS(rem);
+  $('#dLabel').textContent = t.label || 'Timer';
+  $('#dProg').style.strokeDashoffset = RING_C * (1 - rem / t.total);
+  $('#dPause').textContent = t.status === 'running' ? 'Pause' : 'Resume';
+  $('#dPause').hidden = t.status === 'done';
+}
+$('#dClose').onclick = closeDetail;
+$('#dPause').onclick = () => {
+  const t = S.timers.find(x => x.id === detailId); if (!t) return;
+  if (t.status === 'running') { t.left = Math.max(0, t.end - Date.now()); t.status = 'paused'; }
+  else if (t.status === 'paused') { t.end = Date.now() + t.left; t.status = 'running'; }
+  saveTimers(); updateTimerDetail(); askNotifPermission();
+};
+$('#dReset').onclick = () => {
+  const t = S.timers.find(x => x.id === detailId); if (!t) return;
+  t.status = 'paused'; t.left = t.total; saveTimers(); updateTimerDetail();
+};
+$('#dPlus').onclick = () => {
+  const t = S.timers.find(x => x.id === detailId); if (!t) return;
+  if (t.status === 'running') t.end += 60000;
+  else if (t.status === 'paused') t.left += 60000;
+  else { t.status = 'paused'; t.left = 60000; }
+  saveTimers(); updateTimerDetail();
+};
+$('#dDelete').onclick = () => {
+  if (!confirm('Delete this timer?')) return;
+  S.timers = S.timers.filter(x => x.id !== detailId);
+  saveTimers(); closeDetail(); toast('Timer deleted');
+};
+
+/* =====================================================================
+   STOPWATCH (requestAnimationFrame for smooth display)
+   ===================================================================== */
+const swElapsed = () => S.sw.base + (S.sw.running ? Date.now() - S.sw.start : 0);
+function swRender() {
+  const ms = swElapsed();
+  const m = Math.floor(ms / 60000), s = Math.floor(ms % 60000 / 1000), cs = Math.floor(ms % 1000 / 10);
+  $('#swDisplay').innerHTML = `${pad(m)}:${pad(s)}<small>.${pad(cs)}</small>`;
+  // Round dial: one full turn every minute
+  $('#swProg').style.strokeDashoffset = 753.98 * (1 - (ms % 60000) / 60000);
+}
+function swLoop() { swRender(); if (S.sw.running) requestAnimationFrame(swLoop); }
+function swButtons() {
+  const idle = !S.sw.running && S.sw.base === 0;
+  $('#swStart').hidden = !idle;
+  $('#swLap').hidden   = !S.sw.running;
+  $('#swPause').hidden = !S.sw.running;
+  $('#swResume').hidden = S.sw.running || idle;
+  $('#swReset').hidden  = S.sw.running || idle;
+}
+function renderLaps() {
+  const laps = S.sw.laps;
+  if (!laps.length) { $('#laps').innerHTML = ''; return; }
+  const splits = laps.map((v, i) => v - (i ? laps[i - 1] : 0));
+  let best = -1, worst = -1;
+  if (laps.length >= 2) {
+    best = splits.indexOf(Math.min(...splits));
+    worst = splits.indexOf(Math.max(...splits));
+  }
+  const fmt = ms => `${pad(Math.floor(ms / 60000))}:${pad(Math.floor(ms % 60000 / 1000))}.${pad(Math.floor(ms % 1000 / 10))}`;
+  let html = `<div class="lap head"><span>Lap</span><span>Lap time</span><span>Total</span></div>`;
+  for (let i = laps.length - 1; i >= 0; i--) {
+    const cls = i === best ? 'best' : i === worst ? 'worst' : '';
+    html += `<div class="lap ${cls}"><span>${i + 1}</span><span>${fmt(splits[i])}</span><span>${fmt(laps[i])}</span></div>`;
+  }
+  $('#laps').innerHTML = html;
+}
+$('#swStart').onclick = () => { S.sw.running = true; S.sw.start = Date.now(); saveSw(); swButtons(); swLoop(); syncWakeLock(); };
+$('#swPause').onclick = () => { S.sw.base = swElapsed(); S.sw.running = false; saveSw(); swButtons(); swRender(); syncWakeLock(); };
+$('#swResume').onclick = () => { S.sw.running = true; S.sw.start = Date.now(); saveSw(); swButtons(); swLoop(); syncWakeLock(); };
+$('#swLap').onclick = () => { S.sw.laps.push(swElapsed()); saveSw(); renderLaps(); };
+$('#swReset').onclick = () => { S.sw.running = false; S.sw.base = 0; S.sw.laps = []; saveSw(); swButtons(); swRender(); renderLaps(); };
+
+function lapsText() {
+  const laps = S.sw.laps;
+  return laps.map((v, i) => {
+    const split = v - (i ? laps[i - 1] : 0);
+    return `Lap ${i + 1}: ${fmtLapTotal(split)} (total ${fmtLapTotal(v)})`;
+  }).join('\n');
+}
+function fmtLapTotal(ms) { return `${pad(Math.floor(ms / 60000))}:${pad(Math.floor(ms % 60000 / 1000))}.${pad(Math.floor(ms % 1000 / 10))}`; }
+async function shareLaps() {
+  if (!S.sw.laps.length) return toast('No laps yet');
+  const text = 'Stopwatch laps\n' + lapsText();
+  try { if (navigator.share) return await navigator.share({ text }); } catch (e) { return; }
+  copyLaps();
+}
+function copyLaps() {
+  if (!S.sw.laps.length) return toast('No laps yet');
+  const text = 'Stopwatch laps\n' + lapsText();
+  if (navigator.clipboard) navigator.clipboard.writeText(text).then(() => toast('Laps copied'), () => toast('Copy failed'));
+  else toast('Copy not supported');
+}
+function clearLaps() {
+  if (!S.sw.laps.length) return;
+  S.sw.laps = []; saveSw(); renderLaps(); toast('Laps cleared');
+}
+
+/* =====================================================================
+   SETTINGS
+   ===================================================================== */
+/* Themes: dark (default), amoled (pure black), light */
+function currentTheme() { return S.settings.theme || (S.settings.amoled ? 'amoled' : 'dark'); }
+function applyTheme() {
+  const t = currentTheme();
+  document.body.classList.toggle('amoled', t === 'amoled');
+  document.body.classList.toggle('light', t === 'light');
+}
+function cycleTheme() {
+  const order = ['dark', 'amoled', 'light'];
+  S.settings.theme = order[(order.indexOf(currentTheme()) + 1) % order.length];
+  S.settings.amoled = S.settings.theme === 'amoled';
+  saveSettings(); applyTheme();
+  toast('Theme: ' + S.settings.theme);
+}
+function openSettings() {
+  $('#sFmt').value = S.settings.format24 ? '24' : '12';
+  $('#sSnooze').value = String(S.settings.snooze);
+  $('#sTone').value = String(S.settings.ringtone);
+  $('#sVol').value = S.settings.volume;
+  $('#sVib').checked = !!S.settings.vibrate;
+  $('#sTheme').value = currentTheme();
+  $('#settings').classList.add('open');
+}
+$('#sFmt').onchange = e => { S.settings.format24 = e.target.value === '24'; saveSettings(); renderAlarms(); };
+$('#sSnooze').onchange = e => { S.settings.snooze = +e.target.value; saveSettings(); };
+$('#sTone').onchange = e => {
+  S.settings.ringtone = toneValue(e.target.value); saveSettings();
+  if (S.settings.ringtone !== 'custom') { const t = TONES[S.settings.ringtone]; beep(t.wave, t.freqs[0], 0.2, S.settings.volume); }
+};
+/* Upload own ringtone (stored in localStorage as a data URL, max 2 MB) */
+$('#sCustom').onchange = e => {
+  const f = e.target.files[0]; if (!f) return;
+  if (f.size > 2 * 1024 * 1024) { toast('File 2 MB કરતાં નાની હોવી જોઈએ'); e.target.value = ''; return; }
+  const r = new FileReader();
+  r.onload = () => {
+    try { localStorage.setItem('clk_custom', JSON.stringify(r.result)); }
+    catch (err) { return toast('Storage ભરાઈ ગયું, ઓછી સાઇઝની ફાઇલ રાખો'); }
+    refreshToneOptions(); toast('My ringtone saved');
+  };
+  r.readAsDataURL(f);
+};
+$('#sCustomDel').onclick = () => {
+  store.del('clk_custom');
+  if (S.settings.ringtone === 'custom') { S.settings.ringtone = 0; saveSettings(); }
+  refreshToneOptions(); $('#sTone').value = String(S.settings.ringtone); toast('Ringtone removed');
+};
+$('#sVol').oninput = e => { S.settings.volume = +e.target.value; saveSettings(); };
+$('#sVib').onchange = e => { S.settings.vibrate = e.target.checked; saveSettings(); };
+$('#sTheme').onchange = e => { S.settings.theme = e.target.value; S.settings.amoled = e.target.value === 'amoled'; saveSettings(); applyTheme(); };
+$('#sDone').onclick = () => $('#settings').classList.remove('open');
+$('#sReset').onclick = () => {
+  if (!confirm('Reset ALL data (alarms, timers, stopwatch, settings)?')) return;
+  ['clk_alarms', 'clk_timers', 'clk_sw', 'clk_settings'].forEach(store.del);
+  S.alarms = []; S.timers = []; S.sw = { running: false, start: 0, base: 0, laps: [] };
+  S.settings = { ...DEFAULT_SETTINGS }; S.snoozes = [];
+  applyTheme(); $('#settings').classList.remove('open');
+  if (detailId) closeDetail();
+  renderAll(); toast('All data reset');
+};
+
+/* =====================================================================
+   MENUS, NAVIGATION, MODALS
+   ===================================================================== */
+/* Smart bedtime helper: suggests wake times that finish 90-minute sleep cycles (plus 15 min to fall asleep) */
+function sleepCalc() {
+  const v = prompt('સૂવાનો સમય નાખો (HH:MM, 24 કલાક), દા.ત. 23:30');
+  if (!v) return;
+  const m = v.match(/^(\d{1,2}):(\d{2})$/);
+  if (!m || +m[1] > 23 || +m[2] > 59) return toast('ફોર્મેટ: HH:MM');
+  const start = new Date();
+  start.setHours(+m[1], +m[2], 0, 0);
+  if (start <= new Date()) start.setDate(start.getDate() + 1);
+  const times = [4, 5, 6].map(c => {
+    const d = new Date(start.getTime() + (15 + c * 90) * 60000);
+    return `${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  });
+  alert(`સારા ઉઠવાના સમય (90 મિનિટ ચક્ર મુજબ):\n${times.join('  ')}`);
+}
+
+const TITLES = { alarms: 'Alarm', timers: 'Timer', stopwatch: 'Stopwatch' };
+const MENUS = {
+  alarms: [
+    ['Sort by time', () => { S.alarms.sort((a, b) => a.h * 60 + a.m - (b.h * 60 + b.m)); saveAlarmsAndRender(); }],
+    ['Delete all alarms', () => { if (S.alarms.length && confirm('Delete all alarms?')) { S.alarms = []; saveAlarmsAndRender(); } }],
+    ['Change theme', cycleTheme],
+    ['Sleep calculator', sleepCalc],
+    ['Settings', openSettings]
+  ],
+  timers: [
+    ['Clear finished timers', () => { S.timers = S.timers.filter(t => t.status !== 'done'); saveTimers(); renderTimers(); }],
+    ['Settings', openSettings]
+  ],
+  stopwatch: [
+    ['Share laps', shareLaps],
+    ['Copy laps', copyLaps],
+    ['Clear laps', clearLaps],
+    ['Settings', openSettings]
+  ]
+};
+let currentPage = 'alarms';
+function go(name) {
+  currentPage = name;
+  $$('.page').forEach(p => p.classList.toggle('on', p.id === 'pg-' + name));
+  $$('.tab').forEach(t => t.classList.toggle('on', t.dataset.tab === name));
+  $('#fab').hidden = name !== 'alarms';
+  $('#title').textContent = TITLES[name];
+  closeMenu();
+  if (name === 'stopwatch') { swRender(); renderLaps(); }
+}
+function openMenu() {
+  $('#menu').innerHTML = MENUS[currentPage].map((m, i) => `<button data-mi="${i}">${m[0]}</button>`).join('');
+  $('#menu').classList.add('open');
+}
+function closeMenu() { $('#menu').classList.remove('open'); }
+$('#menuBtn').onclick = e => { e.stopPropagation(); $('#menu').classList.contains('open') ? closeMenu() : openMenu(); };
+$('#menu').onclick = e => {
+  const b = e.target.closest('[data-mi]'); if (!b) return;
+  const fn = MENUS[currentPage][+b.dataset.mi][1];
+  closeMenu(); fn();
+};
+document.addEventListener('click', e => { if (!e.target.closest('#menu')) closeMenu(); });
+$$('.tab').forEach(t => t.onclick = () => go(t.dataset.tab));
+
+/* Alarm list interactions: tap = edit, switch = toggle, trash = delete, long-press = delete */
+let longPressTimer = null, suppressClick = false;
+const alarmList = $('#alarmList');
+alarmList.addEventListener('click', e => {
+  if (suppressClick) { suppressClick = false; return; }
+  const card = e.target.closest('.card'); if (!card) return;
+  const a = S.alarms.find(x => x.id === card.dataset.id); if (!a) return;
+  if (e.target.closest('[data-toggle]')) {
+    a.enabled = !a.enabled; saveAlarmsAndRender(); if (a.enabled) askNotifPermission(); return;
+  }
+  if (e.target.closest('[data-del]')) return deleteAlarm(a.id);
+  openEditor(a.id);
+});
+alarmList.addEventListener('pointerdown', e => {
+  const card = e.target.closest('.card');
+  if (!card || e.target.closest('button')) return;
+  longPressTimer = setTimeout(() => { longPressTimer = null; suppressClick = true; deleteAlarm(card.dataset.id); }, 650);
+});
+['pointerup', 'pointerleave', 'pointercancel'].forEach(ev =>
+  alarmList.addEventListener(ev, () => { clearTimeout(longPressTimer); longPressTimer = null; }));
+
+$('#fab').onclick = () => openEditor();
+$$('#edAmpm button').forEach(b => b.onclick = () => {
+  ed.ampm = b.dataset.ampm;
+  $$('#edAmpm button').forEach(x => x.classList.toggle('on', x === b));
+});
+$('#edDays').onclick = e => {
+  const b = e.target.closest('[data-day]'); if (!b) return;
+  const d = +b.dataset.day;
+  ed.days = ed.days.includes(d) ? ed.days.filter(x => x !== d) : [...ed.days, d];
+  renderEdDays();
+};
+$('#edEvery').onclick = () => { ed.days = ed.days.length === 7 ? [] : [0, 1, 2, 3, 4, 5, 6]; renderEdDays(); };
+$('#edCancel').onclick = closeEditor;
+$('#edSave').onclick = saveEditor;
+$('#edDelete').onclick = () => { if (edId) { closeEditor(); deleteAlarm(edId); } };
+$('#editor').onclick = e => { if (e.target.id === 'editor') closeEditor(); };
+$('#settings').onclick = e => { if (e.target.id === 'settings') $('#settings').classList.remove('open'); };
+
+/* Timer keypad, chips, start */
+$('#keypad').onclick = e => { const b = e.target.closest('[data-key]'); if (b) pressKey(b.dataset.key); };
+$$('.chip').forEach(c => c.onclick = () => addChip(+c.dataset.chip));
+$('#tStart').onclick = startNewTimer;
+$$('.tgroup').forEach((g, i) => g.onclick = () => { active = i; renderTimerDisplay(); });
+$('#timerList').onclick = e => { const c = e.target.closest('[data-timer]'); if (c) openDetail(c.dataset.timer); };
+
+
+/* =====================================================================
+   MAIN LOOP (1s) — checks are based on Date.now(), so drift never matters
+   ===================================================================== */
+function tick() {
+  const now = new Date();
+  checkAlarms(now);
+  checkSnoozes();
+  checkTimers();
+  updateAlarmStatus();
+  updateTimerTexts();
+  if (detailId) updateTimerDetail();
+}
+
+function renderAll() {
+  renderAlarms();
+  renderKeypad();
+  renderTimers();
+  swButtons(); swRender(); renderLaps();
+}
+
+/* Ringtone list: built-in tones plus the user's own uploaded file (if any) */
+function refreshToneOptions() {
+  const custom = store.get('clk_custom', null);
+  const opts = TONES.map((t, i) => `<option value="${i}">${t.name}</option>`).join('')
+    + (custom ? '<option value="custom">🎵 My ringtone</option>' : '');
+  $('#edTone').innerHTML = opts;
+  $('#sTone').innerHTML = opts;
+}
+function toneValue(v) { return v === 'custom' ? 'custom' : +v; }
+
+/* ---------- init ---------- */
+(function init() {
+  // Populate ringtone selects
+  refreshToneOptions();
+  applyTheme();
+  renderAll();
+  go('alarms');
+  if (S.sw.running) swLoop();
+  syncWakeLock();
+  // Browsers need a user gesture before audio plays: unlock on first tap.
+  document.addEventListener('pointerdown', () => audio(), { once: true });
+  tick();
+  setInterval(tick, 1000);
+})();
+</script>
+</body>
+</html>
